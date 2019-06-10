@@ -1,0 +1,82 @@
+---
+Language:        Cpp
+#BasedOnStyle: Google 
+# 行尾注释对齐
+AlignTrailingComments: true
+# 开括号(开圆括号、开尖括号、开方括号)后的对齐: Align, DontAlign, AlwaysBreak(总是在开括号后换行)
+AlignAfterOpenBracket:	Align
+# 连续赋值时，对齐所有等号
+AlignConsecutiveAssignments:	true
+# 连续声明时，对齐所有声明的变量名
+AlignConsecutiveDeclarations:	true
+# 左对齐逃脱换行(使用反斜杠换行)的反斜杠
+AlignEscapedNewlinesLeft:	true
+# 水平对齐二元和三元表达式的操作数
+AlignOperands:	true
+AccessModifierOffset: -4
+AlignAfterOpenBracket: false
+AlignEscapedNewlinesLeft: false
+AlignOperands:   false
+AllowAllParametersOfDeclarationOnNextLine: true
+AllowShortBlocksOnASingleLine: true 
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false 
+AllowShortLoopsOnASingleLine: false
+# Only merge empty functions
+AllowShortFunctionsOnASingleLine: Empty 
+AlwaysBreakAfterDefinitionReturnType: false
+AlwaysBreakTemplateDeclarations: true
+AlwaysBreakBeforeMultilineStrings: false 
+BreakBeforeBinaryOperators: All
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializersBeforeComma: false
+BinPackParameters: true
+BinPackArguments: true
+ColumnLimit: 120
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+DerivePointerAlignment: false
+ExperimentalAutoDetectBinPacking: false
+IndentCaseLabels: false
+IndentWrappedFunctionNames: false
+IndentFunctionDeclarationAfterType: false
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: true
+#if indent in namespaces
+NamespaceIndentation: None
+ObjCBlockIndentWidth: 4
+ObjCSpaceAfterProperty: true
+ObjCSpaceBeforeProtocolList: true
+PenaltyBreakBeforeFirstCallParameter: 19
+PenaltyBreakComment: 300
+PenaltyBreakString: 1000
+PenaltyBreakFirstLessLess: 120
+PenaltyExcessCharacter: 1000000
+PenaltyReturnTypeOnItsOwnLine: 60
+PointerAlignment: Left 
+SpacesBeforeTrailingComments: 1
+Cpp11BracedListStyle: true 
+Standard:        Cpp11
+IndentWidth:     4
+TabWidth:        4
+UseTab: Never 
+#BreakBeforeBraces: Stroustrup
+BreakBeforeBraces: Custom
+BraceWrapping:
+   AfterControlStatement: true 
+   AfterFunction: true
+SortIncludes: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+SpacesInAngles:  false
+SpaceInEmptyParentheses: false
+SpacesInCStyleCastParentheses: false
+SpaceAfterCStyleCast: false
+SpacesInContainerLiterals: true
+SpaceBeforeAssignmentOperators: true
+ContinuationIndentWidth: 4
+CommentPragmas:  '^ IWYU pragma:'
+ForEachMacros:   [ foreach, Q_FOREACH, BOOST_FOREACH ]
+SpaceBeforeParens: ControlStatements
+DisableFormat:   false
+...
