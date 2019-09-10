@@ -57,6 +57,7 @@ int main(int argc, char** argv)
         // create the object
         sp<BackupCar>   boot      = new BackupCar();
         sp<BackupVideo> backVedio = new BackupVideo();
+	ALOGI("create two sp");
         IPCThreadState::self()->joinThreadPool();
     }
     return 0;

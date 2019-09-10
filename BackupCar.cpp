@@ -64,7 +64,8 @@ namespace android {
 
 // ---------------------------------------------------------------------------
 
-BackupCar::BackupCar() : Thread(false)
+BackupCar::BackupCar()
+    : Thread(false)
 {
     mSession = new SurfaceComposerClient();
 }
@@ -74,18 +75,15 @@ BackupCar::~BackupCar()
 }
 void BackupCar::startDrawThread()
 {
-    for (;;)
-    {
+    for (;;) {
         char value[PROPERTY_VALUE_MAX];
         property_get("debug.backcar.start", value, "0");
         int noBk = atoi(value);
-        if (noBk == 1)
-        {
-
-            run("BackupCar", PRIORITY_DISPLAY);
+        if (noBk == 1) {
             property_set("debug.backcar.start", 0);
+            run("BackupCar", PRIORITY_DISPLAY);
         }
-        usleep(500 * 1000);
+        usleep(200 * 1000);
     }
     return;
 }
@@ -103,8 +101,7 @@ void BackupCar::onFirstRef()
 {
     status_t err = mSession->linkToComposerDeath(this);
     ALOGE_IF(err, "linkToComposerDeath failed (%s) ", strerror(-err));
-    if (err == NO_ERROR)
-    {
+    if (err == NO_ERROR) {
         // run("BackupCar", PRIORITY_DISPLAY);
         pthread_create(&_Handle, NULL, _thread_t<BackupCar, &BackupCar::startDrawThread>, this);
     }
@@ -152,8 +149,7 @@ status_t BackupCar::initTexture(Texture* texture, AssetManager& assets, const ch
     glGenTextures(1, &texture->name);
     glBindTexture(GL_TEXTURE_2D, texture->name);
 
-    switch (bitmap.getConfig())
-    {
+    switch (bitmap.getConfig()) {
     case SkBitmap::kA8_Config:
         glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, w, h, 0, GL_ALPHA, GL_UNSIGNED_BYTE, p);
         break;
@@ -186,8 +182,7 @@ status_t BackupCar::initTexture(void* buffer, size_t len)
     SkMemoryStream  stream(buffer, len);
     SkImageDecoder* codec = SkImageDecoder::Factory(&stream);
     codec->setDitherImage(false);
-    if (codec)
-    {
+    if (codec) {
         codec->decode(&stream, &bitmap, SkBitmap::kARGB_8888_Config, SkImageDecoder::kDecodePixels_Mode);
         delete codec;
     }
@@ -209,26 +204,21 @@ status_t BackupCar::initTexture(void* buffer, size_t len)
     if (th < h)
         th <<= 1;
 
-    switch (bitmap.getConfig())
-    {
+    switch (bitmap.getConfig()) {
     case SkBitmap::kARGB_8888_Config:
-        if (tw != w || th != h)
-        {
+        if (tw != w || th != h) {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, 0);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, p);
-        } else
-        {
+        } else {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA, GL_UNSIGNED_BYTE, p);
         }
         break;
 
     case SkBitmap::kRGB_565_Config:
-        if (tw != w || th != h)
-        {
+        if (tw != w || th != h) {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tw, th, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, 0);
             glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, w, h, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, p);
-        } else
-        {
+        } else {
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tw, th, 0, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, p);
         }
         break;
@@ -303,8 +293,7 @@ status_t BackupCar::readyToRun()
 
         ((access(USER_BOOTANIMATION_FILE, R_OK) == 0) && (mZip.open(USER_BOOTANIMATION_FILE) == NO_ERROR)) ||
 
-        ((access(SYSTEM_BOOTANIMATION_FILE, R_OK) == 0) && (mZip.open(SYSTEM_BOOTANIMATION_FILE) == NO_ERROR)))
-    {
+        ((access(SYSTEM_BOOTANIMATION_FILE, R_OK) == 0) && (mZip.open(SYSTEM_BOOTANIMATION_FILE) == NO_ERROR))) {
         mAndroidAnimation = false;
     }
 
@@ -329,79 +318,14 @@ bool BackupCar::threadLoop()
     return false;
 }
 
-bool BackupCar::android()
-{
-    initTexture(&mAndroid[0], mAssets, "images/android-logo-mask.png");
-    initTexture(&mAndroid[1], mAssets, "images/android-logo-shine.png");
-
-    // clear screen
-    glShadeModel(GL_FLAT);
-    glDisable(GL_DITHER);
-    glDisable(GL_SCISSOR_TEST);
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT);
-    eglSwapBuffers(mDisplay, mSurface);
-
-    glEnable(GL_TEXTURE_2D);
-    glTexEnvx(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-
-    const GLint xc = (mWidth - mAndroid[0].w) / 2;
-    const GLint yc = (mHeight - mAndroid[0].h) / 2;
-    const Rect  updateRect(xc, yc, xc + mAndroid[0].w, yc + mAndroid[0].h);
-
-    glScissor(updateRect.left, mHeight - updateRect.bottom, updateRect.width(), updateRect.height());
-
-    // Blend state
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glTexEnvx(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_REPLACE);
-
-    const nsecs_t startTime = systemTime();
-    do
-    {
-        nsecs_t now    = systemTime();
-        double  time   = now - startTime;
-        float   t      = 4.0f * float(time / us2ns(16667)) / mAndroid[1].w;
-        GLint   offset = (1 - (t - floorf(t))) * mAndroid[1].w;
-        GLint   x      = xc - offset;
-
-        glDisable(GL_SCISSOR_TEST);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glEnable(GL_SCISSOR_TEST);
-        glDisable(GL_BLEND);
-        glBindTexture(GL_TEXTURE_2D, mAndroid[1].name);
-        glDrawTexiOES(x, yc, 0, mAndroid[1].w, mAndroid[1].h);
-        glDrawTexiOES(x + mAndroid[1].w, yc, 0, mAndroid[1].w, mAndroid[1].h);
-
-        glEnable(GL_BLEND);
-        glBindTexture(GL_TEXTURE_2D, mAndroid[0].name);
-        glDrawTexiOES(xc, yc, 0, mAndroid[0].w, mAndroid[0].h);
-
-        EGLBoolean res = eglSwapBuffers(mDisplay, mSurface);
-        if (res == EGL_FALSE)
-            break;
-
-        // 12fps: don't animate too fast to preserve CPU
-        const nsecs_t sleepTime = 83333 - ns2us(systemTime() - now);
-        if (sleepTime > 0)
-            usleep(sleepTime);
-
-        checkExit();
-    } while (!exitPending());
-
-    glDeleteTextures(1, &mAndroid[0].name);
-    glDeleteTextures(1, &mAndroid[1].name);
-    return false;
-}
-
 void BackupCar::checkExit()
 {
     // Allow surface flinger to gracefully request shutdown
     char value[PROPERTY_VALUE_MAX];
     property_get(EXIT_PROP_NAME, value, "0");
     int exitnow = atoi(value);
-    if (exitnow)
-    {
+    if (exitnow) {
+        ALOGD("request exit!");
         requestExit();
     }
 }
@@ -431,27 +355,32 @@ bool BackupCar::movie()
 
     ZipFileRO& zip(mZip);
 
+    char lang[PROPERTY_VALUE_MAX];
+    char drawleft[PROPERTY_VALUE_MAX];
+    char drawright[PROPERTY_VALUE_MAX];
+    char leftnum[PROPERTY_VALUE_MAX];
+    char rightnum[PROPERTY_VALUE_MAX];
+
+    property_get("persist.sys.language", lang, "0");
+
     size_t numEntries = zip.getNumEntries();
     // ALOGD("numEntries %d %d\n", numEntries, __LINE__);
     ZipEntryRO desc    = zip.findEntryByName("desc.txt");
     FileMap*   descMap = zip.createEntryFileMap(desc);
     ALOGE_IF(!descMap, "descMap is null");
-    if (!descMap)
-    {
+    if (!descMap) {
         return false;
     }
 
     String8     desString((char const*)descMap->getDataPtr(), descMap->getDataLength());
     char const* s = desString.string();
-    // ALOGD("bch> movie-------s s=%s", s);
 
     Animation animation;
 
     // Parse the description file
-    for (;;)
-    {
+
+    for (;;) {
         const char* endl = strstr(s, "\n");
-        // ALOGD("bch> -------endl s=%s", endl);
         if (!endl)
             break;
         String8     line(s, endl - s);
@@ -459,13 +388,11 @@ bool BackupCar::movie()
         int         fps, width, height, count, pause;
         char        path[256];
         char        pathType;
-        if (sscanf(l, "%d %d %d", &width, &height, &fps) == 3)
-        {
+        if (sscanf(l, "%d %d %d", &width, &height, &fps) == 3) {
             animation.width  = width;
             animation.height = height;
             animation.fps    = fps;
-        } else if (sscanf(l, " %c %d %d %s", &pathType, &count, &pause, path) == 4)
-        {
+        } else if (sscanf(l, " %c %d %d %s", &pathType, &count, &pause, path) == 4) {
             Animation::Part part;
             part.playUntilComplete = pathType == 'c';
             part.count             = count;
@@ -478,7 +405,7 @@ bool BackupCar::movie()
 
     animation.width  = 1280;
     animation.height = 480;
-    animation.fps    = 1;
+    animation.fps    = 6;
     Animation::Part part;
     part.playUntilComplete = 'p' == 'c';
     part.count             = 0;
@@ -487,39 +414,28 @@ bool BackupCar::movie()
     animation.parts.add(part);
     // read all the data structures
     const size_t pcount = animation.parts.size();
-    // ALOGD("-bch---pcount---numEntries-- %d %d", pcount, numEntries);
-    for (size_t i = 0; i < numEntries; i++)
-    {
-        char name[256];
-        // ALOGD("-bch---i numEntries-----%d %d", i, numEntries);
+    ALOGD("pcount---numEntries-- %d %d", pcount, numEntries);
+    for (size_t i = 0; i < numEntries; i++) {
+        char       name[256];
         ZipEntryRO entry = zip.findEntryByIndex(i);
-        if (zip.getEntryFileName(entry, name, 256) == 0)
-        {
+        if (zip.getEntryFileName(entry, name, 256) == 0) {
             const String8 entryName(name);
             const String8 path(entryName.getPathDir());
             const String8 leaf(entryName.getPathLeaf());
-            // ALOGD("-bch---leaf size----- %d", leaf.size());
-            if (leaf.size() > 0)
-            {
-                for (int j = 0; j < pcount; j++)
-                {
-                    if (path == animation.parts[j].path)
-                    {
+            if (leaf.size() > 0) {
+                for (int j = 0; j < pcount; j++) {
+                    if (path == animation.parts[j].path) {
                         // ALOGD("-bch---path ----parts %d %s", j, name);
                         int method;
                         // supports only stored png files
-                        if (zip.getEntryInfo(entry, &method, 0, 0, 0, 0, 0))
-                        {
-                            if (method == ZipFileRO::kCompressStored)
-                            {
+                        if (zip.getEntryInfo(entry, &method, 0, 0, 0, 0, 0)) {
+                            if (method == ZipFileRO::kCompressStored) {
                                 FileMap* map = zip.createEntryFileMap(entry);
-                                if (map)
-                                {
+                                if (map) {
                                     Animation::Frame frame;
                                     frame.name = leaf;
                                     frame.map  = map;
                                     Animation::Part& part(animation.parts.editItemAt(j));
-                                    // ALOGD("----bch--add-animation parts frame----");
                                     part.frames.add(frame);
                                 }
                             }
@@ -554,214 +470,164 @@ bool BackupCar::movie()
     int     yc            = ((mHeight - animation.height) / 2);
     nsecs_t lastFrame     = systemTime();
     nsecs_t frameDuration = s2ns(1) / animation.fps;
-    // ALOGD("-bch---lastFrame frameDuration----- %lld, %lld", ns2ms(lastFrame), ns2ms(frameDuration));
-    // ALOGD("-bch---xc yc  width height----- %d, %d, %d,%d", xc, yc, mWidth, mHeight);
+    // ALOGD("lastFrame frameDuration----- %lld, %lld", ns2ms(lastFrame), ns2ms(frameDuration));
+    ALOGD("mWidth %d, mHeight %d, animation.width %d, animation.height %d", mWidth, mHeight, animation.width, animation.height);
     int    kk;
     GLuint textName[4];
     Region clearReg(Rect(mWidth, mHeight));
     clearReg.subtractSelf(Rect(xc, yc, xc + animation.width, yc + animation.height));
 
-    for (int i = 0; i < pcount; i++)
-    {
+    for (int i = 0; i < pcount; i++) {
         const Animation::Part& part(animation.parts[i]);
         const size_t           fcount = part.frames.size();
-        // ALOGD("-bch----pcount fcount----  %d,%d", pcount, fcount);
+        ALOGD("pcount(%d) fcount(%d) i(%d)----", pcount, fcount, i);
         glBindTexture(GL_TEXTURE_2D, 0);
 
         // for (int r=0 ; !part.count || r<part.count ; r++) {
         int kk = 0;
         // glGenTextures(4, textName);
-        for (int r = 0;;)
-        {
+        for (int r = 0;;) {
             // Exit any non playuntil complete parts immediately
-            // ALOGD("-bch----part,count----r  %d,%d", part.count, r);
             if (exitPending() && !part.playUntilComplete)
                 break;
-            // ALOGD("-bch----part,count----r----break  %d,%d", part.count, r);
 
-            for (int j = 0; j < fcount && (!exitPending() || part.playUntilComplete); j++)
-            {
+            for (int j = 0; j < fcount && (!exitPending() || part.playUntilComplete); j++) {
                 // if ((!exitPending() || part.playUntilComplete)) {
                 Animation::Frame mFrame;
-                char             value[PROPERTY_VALUE_MAX];
-                property_get("debug.backcar.radar", value, "0");
-                int radar = atoi(value);
-                // switch(radar){
-                ALOGD("radar = %d", radar);
-                switch (kk)
-                {
+
+                memset(drawleft, 0, PROPERTY_VALUE_MAX);
+                memset(drawright, 0, PROPERTY_VALUE_MAX);
+                memset(leftnum, 0, PROPERTY_VALUE_MAX);
+                memset(rightnum, 0, PROPERTY_VALUE_MAX);
+                property_get("backupcar.direction.left", drawleft, "0");
+                property_get("backupcar.direction.right", drawright, "0");
+                property_get("backupcar.leftnum.value", leftnum, "0");
+                property_get("backupcar.rightnum.value", rightnum, "0");
+
+                //ALOGI("kk=%d", kk);
+                switch (kk) {
                 case 1:
-                    mFrame = part.frames[4]; /*4*/ // right
+                    mFrame = part.frames[1]; //left
+                    if (!strcmp(drawleft, "1"))
+                        mFrame = part.frames[atoi(leftnum)];
                     break;
                 case 2:
-                    mFrame = part.frames[1]; // ryb
+                    mFrame = part.frames[6]; //right
+                    if (!strcmp(drawright, "1"))
+                        mFrame = part.frames[atoi(rightnum)];
                     break;
                 case 3:
-                    mFrame = part.frames[5]; // left
+                    mFrame = part.frames[20]; // line
                     break;
                 case 0:
                     mFrame = part.frames[0]; // major
                     break;
+                case 4:
+                    if (!strcmp(lang, "zh"))
+                        mFrame = part.frames[19]; //bottom
+                    else if (!strcmp(lang, "en"))
+                        mFrame = part.frames[18];
+                    break;
                 default:
-                    if (radar == 1)
-                        mFrame = part.frames[2]; // yello blue
-                    else if (radar == 2)
-                        mFrame = part.frames[3]; // blue
-                    else if (radar == 6)
-                        ; // clearScreen();
-                    else
-                        mFrame = part.frames[1];
                     break;
                 }
-                ALOGD("kk == %d", kk);
 
                 // const Animation::Frame& frame(part.frames[j]);
                 const Animation::Frame& frame(mFrame);
                 nsecs_t                 lastFrame = systemTime();
-                // ALOGD("-bch----fcount=%d--part.frame[%d]--r=%d, radar=%d", fcount, j, r, radar);
-
-                if (r > 0)
-                {
+                if (r > 0) {
                     glBindTexture(GL_TEXTURE_2D, frame.tid);
-                    // ALOGD("-bch----r>0 frame tid--  %d", frame.tid);
-                    // ALOGD("-bch----r>0 frame tid=%d -part.count= %d", frame.tid, part.count);
-                } else
-                {
-                    if (part.count != 1)
-                    {
+                    ALOGD("r>0 frame tid--  %d", frame.tid);
+                } else {
+                    if (part.count != 1) {
                         // glGenTextures(1, &frame.tid);
-                        if (kk <= 3)
-                        {
+                        if (kk <= 4) {
                             // ALOGD("-bch----r<=0 kk=%d, textName[kk]=%d, glIsTexture- %d", kk, textName[kk],
-                            // glIsTexture(textName[kk]));
+                            //glIsTexture(textName[kk]);
                             glBindTexture(GL_TEXTURE_2D, textName[0]);
-                        } else
-                        {
+                        } else {
                             // ALOGD("-bch----r<=0 kk=%d, textName[2]=%d, glIsTexture- %d", kk, textName[2],
-                            //  glIsTexture(textName[2]));
-                            glBindTexture(GL_TEXTURE_2D, textName[2]);
+                            //glIsTexture(textName[2]);
+                            //glBindTexture(GL_TEXTURE_2D, textName[2]);
                         }
 
                         glTexParameterx(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
                         glTexParameterx(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-                        // ALOGD("-bch----r<=0 frame tid=%d -part.count= %d", frame.tid, part.count);
                     }
                     initTexture(frame.map->getDataPtr(), frame.map->getDataLength());
                 }
 
-                if (!clearReg.isEmpty())
-                {
+                if (!clearReg.isEmpty()) {
                     Region::const_iterator head(clearReg.begin());
                     Region::const_iterator tail(clearReg.end());
                     glEnable(GL_SCISSOR_TEST);
-                    ALOGD("-bch------clear reg not empty-----------  ");
-                    while (head != tail)
-                    {
+                    ALOGD("-------clear reg not empty-----------  ");
+                    while (head != tail) {
                         const Rect& r(*head++);
                         glScissor(r.left, mHeight - r.bottom, r.width(), r.height());
                         glClear(GL_COLOR_BUFFER_BIT);
                     }
                     glDisable(GL_SCISSOR_TEST);
                 }
-                // ALOGD("-bch----glDrawTexiOES anima w=%d animi h=%d,kk=%d", animation.width, animation.height, kk);
 
-                // if(radar == 0)
-
-                if (kk == 0)
-                { // mjor
-                    glDrawTexiOES(xc, yc + 112, 0, 255, 112);
-                    ALOGI("xc=%d, yc=%d", xc, yc);
+                if (kk == 0) { // mjor
+                    glDrawTexiOES(0, 172, 0, 387, 308);
+                    kk++;
+                    continue;
+                }
+                if (kk == 1) { //left
+                    glDrawTexiOES(0, 0, 0, 195, 172);
+                    kk++;
+                    continue;
+                }
+                if (kk == 2) { // right
+                    glDrawTexiOES(195, 0, 0, 192, 172);
+                    kk++;
+                    continue;
+                }
+                if (kk == 3) { // line
+                    glDrawTexiOES(387, 33, 0, 893, 447);
+                    kk++;
+                    continue;
+                }
+                if (kk == 4) { //bottom
+                    glDrawTexiOES(387, 0, 0, 893, 33);
                     kk++;
                     continue;
                 }
 
-                // else if(radar == 1)
-                if (kk == 1)
-                {                                                            // right
-                    glDrawTexiOES(1280 - 42 - 40, 480 - 50 - 20, 0, 42, 36); //-40
-                    kk++;
-                    continue;
-                }
+                kk = 0;
+                eglSwapBuffers(mDisplay, mSurface);
 
-                // else if(radar == 2)
-                if (kk == 2)
-                { // ryb
-                     glDrawTexiOES(1280-92-42-40, 480-50-20-20, 0, 92, 50);
-                    // glDrawTexiOES(0, 0, 0, 255, 112);
-                    kk++;
-                    continue;
-                }
-
-                if (radar != 0)
-                {
-                    ALOGI("radar =%d", radar);
-                    glDrawTexiOES(1280 - 92 - 42 - 40, 480 - 50 - 20 - 20, 0, 92, 50);
-                }
-
-                if (radar == 0 && kk == 5)
-                    kk = 0;
-
-                if (kk == 3)
-                { // left
-                    glDrawTexiOES(1280 - 92 - 42 * 2 - 40, 480 - 50 - 20, 0, 42, 36);
-                    kk = 4;
-                }
-                if (kk == 4 || radar != 0)
-                {
-                    eglSwapBuffers(mDisplay, mSurface);
-                    kk = 5;
-                }
-                //#endif
                 nsecs_t now   = systemTime();
                 nsecs_t delay = frameDuration - (now - lastFrame);
-                // delay= delay/10;
-                /*ALOGD("---------bch ------now delay----%lld, %lld", ns2ms(now - lastFrame), ns2ms(delay));
-                ALOGD("-bch-------animation.width  animation.height----------%d,%d, "
-                      "delay %lld  ",
-                    animation.width, animation.height, ns2ms(delay));*/
-                lastFrame = now;
+                lastFrame     = now;
 
-                if (delay > 0)
-                {
+                if (delay > 0) {
                     struct timespec spec;
                     spec.tv_sec  = (now + delay) / 1000000000;
                     spec.tv_nsec = (now + delay) % 1000000000;
                     int err;
-                    do
-                    {
+                    do {
                         err = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &spec, NULL);
                     } while (err < 0 && errno == EINTR);
-                    // ALOGD("---------bch ------now delay- nanossleep---%lld, %lld",
-                    // ns2ms(now - lastFrame),
-                    // ns2ms(delay));
                 }
-                // for(kk=0;kk<300;kk++){
-                ALOGD("---------bch ------usleep frameDuration %lld", frameDuration);
                 checkExit();
-                // usleep(ns2us(frameDuration*20));
-                //}
-                // if(kk == 300)
-                //		break;
             }
-            ALOGD("---------bch ---part.pause frameduration part.count--- "
-                  "usleep---%d, %lld, %d,",
-                part.pause, ns2ms(frameDuration), part.count);
 
             usleep(part.pause * ns2us(frameDuration));
 
             // For infinite parts, we've now played them at least once, so perhaps
             // exit
-            ALOGD("---------bch ---exitPending---%d", exitPending());
+            //ALOGD("exitPending---%d", exitPending());
             if (exitPending() && !part.count)
                 break;
         }
         ALOGI("**end for int r=0");
         // free the textures for this part
-        if (part.count != 1)
-        {
-            for (int j = 0; j < fcount; j++)
-            {
-                ALOGD("-bch----glelelete --fcount--j----  %d,%d", fcount, j);
+        if (part.count != 1) {
+            for (int j = 0; j < fcount; j++) {
+                //ALOGD("glelelete --fcount--j----  %d,%d", fcount, j);
                 const Animation::Frame& frame(part.frames[j]);
                 glDeleteTextures(1, &frame.tid);
             }
@@ -777,8 +643,8 @@ bool BackupCar::movie()
         // ALOGD("---------bch ---usleep to wait quit---");
         //     usleep(ns2us(frameDuration/1000));
         //}
+        return false;
     }
-
     return false;
 }
 
