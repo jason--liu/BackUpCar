@@ -81,6 +81,7 @@ void BackupCar::startDrawThread()
         int noBk = atoi(value);
         if (noBk == 1) {
             property_set("debug.backcar.start", 0);
+            ALOGD("set debug.backcar.start 0");
             run("BackupCar", PRIORITY_DISPLAY);
         }
         usleep(200 * 1000);
@@ -306,7 +307,7 @@ bool BackupCar::threadLoop()
 
     // No need to force exit anymore
     property_set(EXIT_PROP_NAME, "0");
-
+    ALOGD("set service.bkcar.exit 0 (%s:%d)", __FUNCTION__, __LINE__);
     eglMakeCurrent(mDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
     eglDestroyContext(mDisplay, mContext);
     eglDestroySurface(mDisplay, mSurface);
@@ -323,9 +324,10 @@ void BackupCar::checkExit()
     // Allow surface flinger to gracefully request shutdown
     char value[PROPERTY_VALUE_MAX];
     property_get(EXIT_PROP_NAME, value, "0");
-    int exitnow = atoi(value);
+    int exitnow = 0;
+    exitnow     = atoi(value);
     if (exitnow) {
-        ALOGD("request exit!");
+        ALOGD("request exit! exitnow %d", exitnow);
         requestExit();
     }
 }
@@ -360,7 +362,7 @@ bool BackupCar::movie()
     char drawright[PROPERTY_VALUE_MAX];
     char leftnum[PROPERTY_VALUE_MAX];
     char rightnum[PROPERTY_VALUE_MAX];
-
+    char anglenum[PROPERTY_VALUE_MAX];
     property_get("persist.sys.language", lang, "0");
 
     size_t numEntries = zip.getNumEntries();
@@ -377,8 +379,8 @@ bool BackupCar::movie()
 
     Animation animation;
 
-    // Parse the description file
-
+// Parse the description file
+#if 0
     for (;;) {
         const char* endl = strstr(s, "\n");
         if (!endl)
@@ -402,14 +404,14 @@ bool BackupCar::movie()
         }
         s = ++endl;
     }
-
+#endif
     animation.width  = 1280;
     animation.height = 480;
-    animation.fps    = 6;
+    animation.fps    = 14;
     Animation::Part part;
     part.playUntilComplete = 'p' == 'c';
     part.count             = 0;
-    part.pause             = 10;
+    part.pause             = 0;
     part.path              = "part1";
     animation.parts.add(part);
     // read all the data structures
@@ -425,7 +427,7 @@ bool BackupCar::movie()
             if (leaf.size() > 0) {
                 for (int j = 0; j < pcount; j++) {
                     if (path == animation.parts[j].path) {
-                        // ALOGD("-bch---path ----parts %d %s", j, name);
+                        //ALOGD("path -- %s", name);
                         int method;
                         // supports only stored png files
                         if (zip.getEntryInfo(entry, &method, 0, 0, 0, 0, 0)) {
@@ -433,6 +435,7 @@ bool BackupCar::movie()
                                 FileMap* map = zip.createEntryFileMap(entry);
                                 if (map) {
                                     Animation::Frame frame;
+                                    //ALOGD("leaf %s", leaf.string());
                                     frame.name = leaf;
                                     frame.map  = map;
                                     Animation::Part& part(animation.parts.editItemAt(j));
@@ -445,7 +448,6 @@ bool BackupCar::movie()
             }
         }
     }
-
     // clear screen
     glShadeModel(GL_FLAT);
     glDisable(GL_DITHER);
@@ -482,6 +484,10 @@ bool BackupCar::movie()
         const size_t           fcount = part.frames.size();
         ALOGD("pcount(%d) fcount(%d) i(%d)----", pcount, fcount, i);
         glBindTexture(GL_TEXTURE_2D, 0);
+        /*for(int i =0;i<fcount;i++)
+        {
+			ALOGD("frame name index %d %s",i, part.frames[i].name.string());
+        }*/
 
         // for (int r=0 ; !part.count || r<part.count ; r++) {
         int kk = 0;
@@ -503,6 +509,7 @@ bool BackupCar::movie()
                 property_get("backupcar.direction.right", drawright, "0");
                 property_get("backupcar.leftnum.value", leftnum, "0");
                 property_get("backupcar.rightnum.value", rightnum, "0");
+                property_get("backupcar.angle.value", anglenum, "0");
 
                 //ALOGI("kk=%d", kk);
                 switch (kk) {
@@ -512,21 +519,22 @@ bool BackupCar::movie()
                         mFrame = part.frames[atoi(leftnum)];
                     break;
                 case 2:
-                    mFrame = part.frames[6]; //right
+                    mFrame = part.frames[14]; //right
                     if (!strcmp(drawright, "1"))
                         mFrame = part.frames[atoi(rightnum)];
                     break;
                 case 3:
-                    mFrame = part.frames[20]; // line
+                    //mFrame = part.frames[27]; // line
+                    mFrame = part.frames[atoi(anglenum)];
                     break;
                 case 0:
                     mFrame = part.frames[0]; // major
                     break;
                 case 4:
                     if (!strcmp(lang, "zh"))
-                        mFrame = part.frames[19]; //bottom
+                        mFrame = part.frames[26]; //bottom
                     else if (!strcmp(lang, "en"))
-                        mFrame = part.frames[18];
+                        mFrame = part.frames[25];
                     break;
                 default:
                     break;
@@ -599,6 +607,10 @@ bool BackupCar::movie()
                 kk = 0;
                 eglSwapBuffers(mDisplay, mSurface);
 
+                checkExit();
+                if (exitPending())
+                    break;
+
                 nsecs_t now   = systemTime();
                 nsecs_t delay = frameDuration - (now - lastFrame);
                 lastFrame     = now;
@@ -614,8 +626,9 @@ bool BackupCar::movie()
                 }
                 checkExit();
             }
-
-            usleep(part.pause * ns2us(frameDuration));
+            //ALOGD("pause %d, ns2us(frameDuration) %lld usleep %lld", part.pause, (long long)ns2us(frameDuration), (long long)(part.pause * ns2us(frameDuration)));
+            if (!exitPending())
+                usleep(part.pause * ns2us(frameDuration));
 
             // For infinite parts, we've now played them at least once, so perhaps
             // exit
